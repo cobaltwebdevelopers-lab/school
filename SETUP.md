@@ -25,11 +25,17 @@ In the Supabase dashboard, open **SQL Editor** and run these two files, in order
 2. `supabase/migrations/20260910000001_seed_fee_tiers.sql` — seeds the three
    default fee categories (Boarding, Tuition, Transport) in payment-priority
    order. Edit this file first if your school's fee categories differ.
+3. `supabase/migrations/20260910000002_allow_self_signup.sql` — allows
+   visitors to create their own account from the landing page. New accounts
+   always start as `teacher` (least-privileged role) — this is enforced by
+   the database itself, so it can't be bypassed even by calling the API
+   directly. Bursar and director accounts still need to be created the
+   manual way below.
 
 ## 4. Create your first bursar account
 
-There's no public self-signup — accounts are created by an administrator.
-For your first login:
+Anyone can now sign up from the landing page, but self-signup only ever
+grants the `teacher` role. For your first bursar (or director) login:
 
 1. In the Supabase dashboard, go to **Authentication → Users → Add user**
    and create a user with an email and password.
@@ -42,9 +48,10 @@ For your first login:
    where email = 'you@example.com';
    ```
 
-Repeat step 4 for director and teacher accounts, changing `full_name` and
-`role` (`'director'` or `'teacher'`) as needed. There's currently no admin
-UI for managing staff accounts — this is the way to add/manage them for now.
+Repeat for any director accounts, or for a teacher account you'd rather
+provision yourself instead of having them sign up. There's currently no
+admin UI for managing staff accounts — this SQL is the way to add or change
+roles for now.
 
 ## 5. Add your students and fee balances
 

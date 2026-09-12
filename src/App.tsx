@@ -15,6 +15,7 @@ import {
   recordCashPayment,
 } from '@/lib/data';
 import { LoginPage } from '@/components/LoginPage';
+import { LandingPage } from '@/components/LandingPage';
 import { TeacherDashboard } from '@/components/TeacherDashboard';
 import { DirectorDashboard } from '@/components/DirectorDashboard';
 import { Header } from '@/components/Header';
@@ -237,6 +238,7 @@ function BursarDashboard() {
 
 function App() {
   const { user, profile, loading } = useAuth();
+  const [screen, setScreen] = useState<'landing' | 'signin' | 'signup'>('landing');
 
   if (!isSupabaseConfigured) {
     return (
@@ -257,7 +259,12 @@ function App() {
   }
 
   if (!user) {
-    return <LoginPage />;
+    if (screen === 'signin' || screen === 'signup') {
+      return <LoginPage initialMode={screen} onBack={() => setScreen('landing')} />;
+    }
+    return (
+      <LandingPage onSignIn={() => setScreen('signin')} onSignUp={() => setScreen('signup')} />
+    );
   }
 
   if (!profile) {
