@@ -9,6 +9,8 @@ export const SCHOOL = {
   email: 'bursar@greenfieldacademy.ac.ke',
   darajaPaybill: '247247',
   accountName: 'GREENFIELD ACADEMY',
+  // Replace with the school's real KRA PIN once eTIMS/OSCU credentials are issued.
+  kraPin: 'P000000000X',
 };
 
 export const CURRENT_TERM = 'Term 2 2026';

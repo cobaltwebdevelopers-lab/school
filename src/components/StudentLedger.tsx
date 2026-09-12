@@ -1,31 +1,57 @@
 import { useState, useMemo } from 'react';
-import type { Student } from '@/types';
-import { formatKSh, getStudentStatus, getStudentBalance, CURRENT_TERM } from '@/mockData';
+import type { Student, StudentFeeBalance } from '@/types';
+import { formatKSh, CURRENT_TERM } from '@/mockData';
 import { Search, MessageCircle, CheckCircle2, Clock, AlertCircle, X } from 'lucide-react';
+
+type LedgerStatus = 'Cleared' | 'Partial' | 'Overdue';
 
 interface StudentLedgerProps {
   students: Student[];
-  onWhatsAppAlert: (student: Student) => void;
+  balances: StudentFeeBalance[];
+  onWhatsAppAlert: (student: Student, due: number, paid: number, balance: number) => void;
 }
 
-export function StudentLedger({ students, onWhatsAppAlert }: StudentLedgerProps) {
+function studentTotals(studentId: string, balances: StudentFeeBalance[]) {
+  const rows = balances.filter((b) => b.studentId === studentId);
+  const due = rows.reduce((sum, b) => sum + b.amountDue, 0);
+  const paid = rows.reduce((sum, b) => sum + b.amountPaid, 0);
+  return { due, paid, balance: Math.max(0, due - paid) };
+}
+
+function statusFor(due: number, paid: number): LedgerStatus {
+  if (due === 0) return 'Cleared';
+  if (paid >= due) return 'Cleared';
+  if (paid > 0) return 'Partial';
+  return 'Overdue';
+}
+
+export function StudentLedger({ students, balances, onWhatsAppAlert }: StudentLedgerProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Cleared' | 'Partial' | 'Overdue'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | LedgerStatus>('all');
+
+  const rows = useMemo(() => {
+    return students.map((s) => {
+      const { due, paid, balance } = studentTotals(s.id, balances);
+      return { student: s, due, paid, balance, status: statusFor(due, paid) };
+    });
+  }, [students, balances]);
 
   const filtered = useMemo(() => {
-    return students.filter((s) => {
-      const status = getStudentStatus(s);
-      if (statusFilter !== 'all' && status !== statusFilter) return false;
+    return rows.filter((r) => {
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        return s.name.toLowerCase().includes(q) || s.admissionNo.includes(q) || s.grade.toLowerCase().includes(q);
+        return (
+          r.student.name.toLowerCase().includes(q) ||
+          r.student.admissionNo.includes(q) ||
+          r.student.grade.toLowerCase().includes(q)
+        );
       }
       return true;
     });
-  }, [students, searchQuery, statusFilter]);
+  }, [rows, searchQuery, statusFilter]);
 
-  const statusBadge = (student: Student) => {
-    const status = getStudentStatus(student);
+  const statusBadge = (status: LedgerStatus) => {
     const styles = {
       Cleared: 'bg-emerald-100 text-emerald-700 border-emerald-200',
       Partial: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -90,37 +116,34 @@ export function StudentLedger({ students, onWhatsAppAlert }: StudentLedgerProps)
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map((student) => {
-              const balance = getStudentBalance(student);
-              return (
-                <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-3.5 font-mono font-semibold text-slate-900">{student.admissionNo}</td>
-                  <td className="px-6 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
-                        {student.name.charAt(0)}
-                      </div>
-                      <span className="font-medium text-slate-900">{student.name}</span>
+            {filtered.map(({ student, due, paid, balance, status }) => (
+              <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-6 py-3.5 font-mono font-semibold text-slate-900">{student.admissionNo}</td>
+                <td className="px-6 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                      {student.name.charAt(0)}
                     </div>
-                  </td>
-                  <td className="px-6 py-3.5 text-slate-600">{student.grade}</td>
-                  <td className="px-6 py-3.5 text-right text-slate-600">{formatKSh(student.termTuitionFee)}</td>
-                  <td className="px-6 py-3.5 text-right font-semibold text-emerald-600">{formatKSh(student.totalPaid)}</td>
-                  <td className="px-6 py-3.5 text-right font-semibold text-slate-900">{formatKSh(balance)}</td>
-                  <td className="px-6 py-3.5">{statusBadge(student)}</td>
-                  <td className="px-6 py-3.5 text-right">
-                    <button
-                      onClick={() => onWhatsAppAlert(student)}
-                      disabled={getStudentStatus(student) === 'Cleared'}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      WhatsApp Alert
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+                    <span className="font-medium text-slate-900">{student.name}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-3.5 text-slate-600">{student.grade}</td>
+                <td className="px-6 py-3.5 text-right text-slate-600">{formatKSh(due)}</td>
+                <td className="px-6 py-3.5 text-right font-semibold text-emerald-600">{formatKSh(paid)}</td>
+                <td className="px-6 py-3.5 text-right font-semibold text-slate-900">{formatKSh(balance)}</td>
+                <td className="px-6 py-3.5">{statusBadge(status)}</td>
+                <td className="px-6 py-3.5 text-right">
+                  <button
+                    onClick={() => onWhatsAppAlert(student, due, paid, balance)}
+                    disabled={status === 'Cleared'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    WhatsApp Alert
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -128,9 +151,18 @@ export function StudentLedger({ students, onWhatsAppAlert }: StudentLedgerProps)
   );
 }
 
-export function WhatsAppModal({ student, onClose }: { student: Student; onClose: () => void }) {
-  const balance = getStudentBalance(student);
-  const message = `Dear Parent, payment of KSh ${student.totalPaid.toLocaleString('en-KE')} received for ${student.name} (ADM: ${student.admissionNo}). Outstanding balance for ${CURRENT_TERM} is KSh ${balance.toLocaleString('en-KE')}.`;
+export function WhatsAppModal({
+  student,
+  paid,
+  balance,
+  onClose,
+}: {
+  student: Student;
+  paid: number;
+  balance: number;
+  onClose: () => void;
+}) {
+  const message = `Dear Parent, payment of KSh ${paid.toLocaleString('en-KE')} received for ${student.name} (ADM: ${student.admissionNo}). Outstanding balance for ${CURRENT_TERM} is KSh ${balance.toLocaleString('en-KE')}.`;
   const whatsappUrl = `https://wa.me/${student.parentPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
 
   return (

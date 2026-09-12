@@ -1,18 +1,32 @@
-import { useState } from 'react';
-import type { Student } from '@/types';
-import { getStudentBalance, getStudentStatus, formatKSh, CURRENT_TERM } from '@/mockData';
+import { useState, useMemo } from 'react';
+import type { Student, StudentFeeBalance } from '@/types';
+import { formatKSh, CURRENT_TERM } from '@/mockData';
 import { Send, X, CheckCircle2, Smartphone } from 'lucide-react';
 
 interface BroadcastModalProps {
   students: Student[];
+  balances: StudentFeeBalance[];
   onClose: () => void;
 }
 
-export function BroadcastModal({ students, onClose }: BroadcastModalProps) {
+function balanceFor(studentId: string, balances: StudentFeeBalance[]) {
+  const rows = balances.filter((b) => b.studentId === studentId);
+  const due = rows.reduce((sum, b) => sum + b.amountDue, 0);
+  const paid = rows.reduce((sum, b) => sum + b.amountPaid, 0);
+  return Math.max(0, due - paid);
+}
+
+export function BroadcastModal({ students, balances, onClose }: BroadcastModalProps) {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const overdueStudents = students.filter((s) => getStudentBalance(s) > 5000);
+  const overdueStudents = useMemo(
+    () =>
+      students
+        .map((s) => ({ student: s, balance: balanceFor(s.id, balances) }))
+        .filter((row) => row.balance > 5000),
+    [students, balances],
+  );
 
   const handleSend = () => {
     setSending(true);
@@ -60,26 +74,23 @@ export function BroadcastModal({ students, onClose }: BroadcastModalProps) {
               </div>
 
               <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
-                {overdueStudents.map((student) => {
-                  const balance = getStudentBalance(student);
-                  return (
-                    <div key={student.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
-                          {student.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{student.parentName}</p>
-                          <p className="text-xs text-slate-500">{student.parentPhone} - Parent of {student.name}</p>
-                        </div>
+                {overdueStudents.map(({ student, balance }) => (
+                  <div key={student.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                        {student.name.charAt(0)}
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">Balance</p>
-                        <p className="text-sm font-bold text-red-600">{formatKSh(balance)}</p>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{student.parentName}</p>
+                        <p className="text-xs text-slate-500">{student.parentPhone} - Parent of {student.name}</p>
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">Balance</p>
+                      <p className="text-sm font-bold text-red-600">{formatKSh(balance)}</p>
+                    </div>
+                  </div>
+                ))}
                 {overdueStudents.length === 0 && (
                   <p className="text-center text-sm text-slate-400 py-8">No students with balance over KSh 5,000</p>
                 )}

@@ -1,0 +1,103 @@
+# Setup
+
+## 1. Create a Supabase project
+
+Create a new project at supabase.com, then grab your **Project URL** and
+**anon/public key** from Project Settings → API.
+
+## 2. Add environment variables
+
+Create a `.env` file in the project root:
+
+```
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+## 3. Run the migrations
+
+In the Supabase dashboard, open **SQL Editor** and run these two files, in order:
+
+1. `supabase/migrations/20260910000000_school_fees_schema.sql` — creates every
+   table (students, fee tiers, balances, parent phone mappings, payments,
+   payment allocations, receipts) plus row-level security policies for all
+   three roles (bursar, director, teacher).
+2. `supabase/migrations/20260910000001_seed_fee_tiers.sql` — seeds the three
+   default fee categories (Boarding, Tuition, Transport) in payment-priority
+   order. Edit this file first if your school's fee categories differ.
+
+## 4. Create your first bursar account
+
+There's no public self-signup — accounts are created by an administrator.
+For your first login:
+
+1. In the Supabase dashboard, go to **Authentication → Users → Add user**
+   and create a user with an email and password.
+2. In **SQL Editor**, run (replacing the email):
+
+   ```sql
+   insert into profiles (id, full_name, role)
+   select id, 'Your Name', 'bursar'
+   from auth.users
+   where email = 'you@example.com';
+   ```
+
+Repeat step 4 for director and teacher accounts, changing `full_name` and
+`role` (`'director'` or `'teacher'`) as needed. There's currently no admin
+UI for managing staff accounts — this is the way to add/manage them for now.
+
+## 5. Add your students and fee balances
+
+Once signed in as a bursar, students, fee tiers, and balances are managed
+directly in the Supabase table editor for now (`students` and
+`student_fee_balances`, one row per student per fee tier per term). A proper
+in-app student/fee-setup screen is a natural next addition if this becomes a
+regular workflow — flag it if you want that built out next.
+
+## 6. Connect real M-Pesa payments (optional but recommended)
+
+Without this step, payments only enter the system if a bursar records them
+manually (cash payments) — there's no live connection to Safaricom yet.
+
+A Supabase Edge Function is included at
+`supabase/functions/mpesa-c2b-confirmation` that receives Safaricom Daraja's
+C2B "Confirmation" callback, records the payment, and immediately
+auto-reconciles it (known phone mapping first, then fuzzy admission-number
+matching) — exactly the same priority order the app uses everywhere else.
+Only genuinely ambiguous or unmatched payments are left for the bursar to
+resolve by hand.
+
+1. Install the Supabase CLI and log in, then from the project root:
+
+   ```bash
+   supabase functions deploy mpesa-c2b-confirmation --no-verify-jwt
+   ```
+
+   `--no-verify-jwt` is required — Safaricom's callback can't send a Supabase
+   auth token, so this one function has to accept unauthenticated requests.
+   (This is safe: it only accepts Daraja's specific payload shape and can't
+   be used to read or modify anything else.)
+
+2. Register the deployed function's URL with Safaricom as your C2B
+   **Confirmation URL** (via the Daraja portal, or your own
+   `RegisterURL` API call) — you'll need a Safaricom Daraja developer account
+   and your school's paybill number for this part, which only the school can
+   set up.
+
+3. If your fee terms don't match the default `'Term 2 2026'` used elsewhere
+   in the app, set a `CURRENT_TERM` secret on the function so it allocates
+   against the right term:
+
+   ```bash
+   supabase secrets set CURRENT_TERM="Term 1 2027"
+   ```
+
+## On eTIMS
+
+Receipts are laid out to match KRA eTIMS conventions (KRA PIN, sequential
+receipt number, QR code, tax-treatment line), but nothing here actually
+submits to KRA's systems — that requires the school's own OSCU/VSCU
+registration and API credentials from KRA, which only the school itself
+can obtain. Once you have those credentials, the receipt's data model
+(SCHOOL.kraPin in `src/mockData.ts`, plus the receipt/QR payload in
+`src/components/ReceiptModal.tsx`) is where that integration would plug in.
