@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { StudentClearance } from '@/types';
 import { fetchStudentClearance } from '@/lib/data';
-import { Search, GraduationCap } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
+import { Search, GraduationCap, LogOut } from 'lucide-react';
 
 export function TeacherDashboard() {
+  const { profile, signOut } = useAuth();
   const [students, setStudents] = useState<StudentClearance[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,7 +28,21 @@ export function TeacherDashboard() {
   }, [students, search, gradeFilter]);
 
   return (
-    <main className="max-w-4xl mx-auto px-8 py-8">
+    <div className="min-h-screen bg-slate-50">
+      <header className="bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-8 py-3 flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-700">{profile?.fullName}</span>
+          <button
+            onClick={() => signOut()}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-8 py-8">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
           <GraduationCap className="w-5 h-5" />
@@ -81,6 +97,7 @@ export function TeacherDashboard() {
           ))
         )}
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

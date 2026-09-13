@@ -31,6 +31,9 @@ In the Supabase dashboard, open **SQL Editor** and run these two files, in order
    the database itself, so it can't be bypassed even by calling the API
    directly. Bursar and director accounts still need to be created the
    manual way below.
+4. `supabase/migrations/20260910000003_archive_students.sql` — adds support
+   for removing a student from the active roster without destroying their
+   payment history (see step 5 below).
 
 ## 4. Create your first bursar account
 
@@ -53,13 +56,14 @@ provision yourself instead of having them sign up. There's currently no
 admin UI for managing staff accounts — this SQL is the way to add or change
 roles for now.
 
-## 5. Add your students and fee balances
+## 5. Add your students
 
-Once signed in as a bursar, students, fee tiers, and balances are managed
-directly in the Supabase table editor for now (`students` and
-`student_fee_balances`, one row per student per fee tier per term). A proper
-in-app student/fee-setup screen is a natural next addition if this becomes a
-regular workflow — flag it if you want that built out next.
+Once signed in as a bursar, use the **Add Student** button on the dashboard —
+it captures the student's details and their opening fee balances (Boarding,
+Tuition, Transport) for the current term in one step. Removing a student
+from there archives them rather than deleting their record outright, since
+their payment history needs to stay intact for financial record-keeping —
+they'll just drop off the active roster, ledger, and teacher clearance list.
 
 ## 6. Connect real M-Pesa payments (optional but recommended)
 

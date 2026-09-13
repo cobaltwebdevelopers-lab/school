@@ -11,7 +11,7 @@ import type {
 } from '@/types';
 
 export async function fetchStudents(): Promise<Student[]> {
-  const { data, error } = await supabase.from('students').select('*').order('name');
+  const { data, error } = await supabase.from('students').select('*').eq('is_active', true).order('name');
   if (error) throw error;
   return (data ?? []).map((s) => ({
     id: s.id,
@@ -35,6 +35,69 @@ export async function fetchStudentClearance(): Promise<StudentClearance[]> {
     grade: s.grade,
     cleared: s.cleared,
   }));
+}
+
+export interface NewStudentInput {
+  admissionNo: string;
+  name: string;
+  grade: string;
+  parentName: string;
+  parentPhone: string;
+  term: string;
+  feeDues: { feeTierId: string; amountDue: number }[];
+}
+
+/** Creates a student and their opening fee balances (one row per fee tier) for the given term. */
+export async function addStudent(input: NewStudentInput): Promise<Student> {
+  const { data: student, error } = await supabase
+    .from('students')
+    .insert({
+      admission_no: input.admissionNo,
+      name: input.name,
+      grade: input.grade,
+      parent_name: input.parentName || null,
+      parent_phone: input.parentPhone || null,
+    })
+    .select()
+    .single();
+  if (error || !student) throw error ?? new Error('Unable to create student');
+
+  const balanceRows = input.feeDues
+    .filter((d) => d.amountDue > 0)
+    .map((d) => ({
+      student_id: student.id,
+      fee_tier_id: d.feeTierId,
+      term: input.term,
+      amount_due: d.amountDue,
+      amount_paid: 0,
+    }));
+  if (balanceRows.length > 0) {
+    const { error: balanceError } = await supabase.from('student_fee_balances').insert(balanceRows);
+    if (balanceError) throw balanceError;
+  }
+
+  return {
+    id: student.id,
+    admissionNo: student.admission_no,
+    name: student.name,
+    grade: student.grade,
+    parentPhone: student.parent_phone ?? '',
+    parentName: student.parent_name ?? '',
+    termTuitionFee: 0,
+    totalPaid: 0,
+  };
+}
+
+/**
+ * Removes a student from the active roster. This archives them rather than
+ * deleting the row outright — payments, allocations, and receipts tied to a
+ * student are never destroyed, so a hard delete would fail anyway for any
+ * student with payment history. Archived students drop off the ledger,
+ * cash-payment search, and teacher clearance list.
+ */
+export async function archiveStudent(studentId: string): Promise<void> {
+  const { error } = await supabase.from('students').update({ is_active: false }).eq('id', studentId);
+  if (error) throw error;
 }
 
 export async function fetchFeeTiers(): Promise<FeeTier[]> {

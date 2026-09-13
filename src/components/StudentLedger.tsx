@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Student, StudentFeeBalance } from '@/types';
 import { formatKSh, CURRENT_TERM } from '@/mockData';
-import { Search, MessageCircle, CheckCircle2, Clock, AlertCircle, X } from 'lucide-react';
+import { Search, MessageCircle, CheckCircle2, Clock, AlertCircle, X, UserPlus, Trash2 } from 'lucide-react';
 
 type LedgerStatus = 'Cleared' | 'Partial' | 'Overdue';
 
@@ -9,6 +9,8 @@ interface StudentLedgerProps {
   students: Student[];
   balances: StudentFeeBalance[];
   onWhatsAppAlert: (student: Student, due: number, paid: number, balance: number) => void;
+  onAddStudent: () => void;
+  onRemoveStudent: (student: Student) => void;
 }
 
 function studentTotals(studentId: string, balances: StudentFeeBalance[]) {
@@ -25,7 +27,7 @@ function statusFor(due: number, paid: number): LedgerStatus {
   return 'Overdue';
 }
 
-export function StudentLedger({ students, balances, onWhatsAppAlert }: StudentLedgerProps) {
+export function StudentLedger({ students, balances, onWhatsAppAlert, onAddStudent, onRemoveStudent }: StudentLedgerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | LedgerStatus>('all');
 
@@ -98,6 +100,13 @@ export function StudentLedger({ students, balances, onWhatsAppAlert }: StudentLe
             <option value="Partial">Partial</option>
             <option value="Overdue">Overdue</option>
           </select>
+          <button
+            onClick={onAddStudent}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Student
+          </button>
         </div>
       </div>
 
@@ -133,14 +142,23 @@ export function StudentLedger({ students, balances, onWhatsAppAlert }: StudentLe
                 <td className="px-6 py-3.5 text-right font-semibold text-slate-900">{formatKSh(balance)}</td>
                 <td className="px-6 py-3.5">{statusBadge(status)}</td>
                 <td className="px-6 py-3.5 text-right">
-                  <button
-                    onClick={() => onWhatsAppAlert(student, due, paid, balance)}
-                    disabled={status === 'Cleared'}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    WhatsApp Alert
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => onWhatsAppAlert(student, due, paid, balance)}
+                      disabled={status === 'Cleared'}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      WhatsApp Alert
+                    </button>
+                    <button
+                      onClick={() => onRemoveStudent(student)}
+                      title="Remove student"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -13,6 +13,9 @@ import {
   fetchAllocationsForPayment,
   fetchOrCreateReceiptNo,
   recordCashPayment,
+  addStudent,
+  archiveStudent,
+  type NewStudentInput,
 } from '@/lib/data';
 import { LoginPage } from '@/components/LoginPage';
 import { LandingPage } from '@/components/LandingPage';
@@ -25,6 +28,7 @@ import { StudentLedger, WhatsAppModal } from '@/components/StudentLedger';
 import { ReceiptModal } from '@/components/ReceiptModal';
 import { BroadcastModal } from '@/components/BroadcastModal';
 import { CashPaymentModal } from '@/components/CashPaymentModal';
+import { AddStudentModal } from '@/components/AddStudentModal';
 import { allocatePayment } from '@/lib/paymentAllocation';
 import { Smartphone, Banknote } from 'lucide-react';
 
@@ -49,6 +53,7 @@ function BursarDashboard() {
   const [whatsappTarget, setWhatsappTarget] = useState<{ student: Student; paid: number; balance: number } | null>(null);
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
+  const [showAddStudent, setShowAddStudent] = useState(false);
 
   const loadAll = useCallback(async () => {
     const [s, t, b, phones, p] = await Promise.all([
@@ -131,6 +136,20 @@ function BursarDashboard() {
     setReceiptData({ payment, student, allocations, receiptNo, outstandingBalance: Math.max(0, due - paid) });
   };
 
+  const handleAddStudent = async (input: NewStudentInput) => {
+    await addStudent(input);
+    await loadAll();
+    setShowAddStudent(false);
+  };
+
+  const handleRemoveStudent = async (student: Student) => {
+    if (!window.confirm(`Remove ${student.name} from the active roster? Their payment history is kept, but they'll drop off the ledger, cash payment search, and teacher clearance list.`)) {
+      return;
+    }
+    await archiveStudent(student.id);
+    await loadAll();
+  };
+
   const stats = useMemo(() => {
     const totalCollections = payments
       .filter((p) => p.status === 'matched')
@@ -196,6 +215,8 @@ function BursarDashboard() {
           students={students}
           balances={balances}
           onWhatsAppAlert={(student, _due, paid, balance) => setWhatsappTarget({ student, paid, balance })}
+          onAddStudent={() => setShowAddStudent(true)}
+          onRemoveStudent={handleRemoveStudent}
         />
       </main>
 
@@ -216,6 +237,14 @@ function BursarDashboard() {
           paid={whatsappTarget.paid}
           balance={whatsappTarget.balance}
           onClose={() => setWhatsappTarget(null)}
+        />
+      )}
+
+      {showAddStudent && (
+        <AddStudentModal
+          feeTiers={feeTiers}
+          onClose={() => setShowAddStudent(false)}
+          onSubmit={handleAddStudent}
         />
       )}
 
