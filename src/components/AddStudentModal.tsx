@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FeeTier } from '@/types';
-import { CURRENT_TERM } from '@/mockData';
+import { useSchool } from '@/lib/auth';
 import type { NewStudentInput } from '@/lib/data';
 import { X, UserPlus } from 'lucide-react';
 
@@ -11,6 +11,7 @@ interface AddStudentModalProps {
 }
 
 export function AddStudentModal({ feeTiers, onClose, onSubmit }: AddStudentModalProps) {
+  const { currentTerm } = useSchool();
   const [admissionNo, setAdmissionNo] = useState('');
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
@@ -34,7 +35,7 @@ export function AddStudentModal({ feeTiers, onClose, onSubmit }: AddStudentModal
         grade: grade.trim(),
         parentName: parentName.trim(),
         parentPhone: parentPhone.trim(),
-        term: CURRENT_TERM,
+        term: currentTerm,
         feeDues: feeTiers.map((t) => ({ feeTierId: t.id, amountDue: parseFloat(dues[t.id] || '0') || 0 })),
       });
     } catch (e) {
@@ -53,7 +54,7 @@ export function AddStudentModal({ feeTiers, onClose, onSubmit }: AddStudentModal
             </div>
             <div>
               <h3 className="font-bold text-slate-900">Add Student</h3>
-              <p className="text-xs text-slate-500">{CURRENT_TERM}</p>
+              <p className="text-xs text-slate-500">{currentTerm}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">

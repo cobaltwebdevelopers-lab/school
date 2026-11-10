@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Student, StudentFeeBalance } from '@/types';
-import { formatKSh, CURRENT_TERM } from '@/mockData';
+import { formatKSh } from '@/lib/format';
+import { useSchool } from '@/lib/auth';
 import { Search, MessageCircle, CheckCircle2, Clock, AlertCircle, X, UserPlus, Trash2 } from 'lucide-react';
 
 type LedgerStatus = 'Cleared' | 'Partial' | 'Overdue';
@@ -28,6 +29,7 @@ function statusFor(due: number, paid: number): LedgerStatus {
 }
 
 export function StudentLedger({ students, balances, onWhatsAppAlert, onAddStudent, onRemoveStudent }: StudentLedgerProps) {
+  const { currentTerm } = useSchool();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | LedgerStatus>('all');
 
@@ -77,7 +79,7 @@ export function StudentLedger({ students, balances, onWhatsAppAlert, onAddStuden
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-slate-900">Student Fee Ledger & Directory</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{CURRENT_TERM} - {students.length} students enrolled</p>
+          <p className="text-xs text-slate-500 mt-0.5">{currentTerm} - {students.length} students enrolled</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -180,7 +182,8 @@ export function WhatsAppModal({
   balance: number;
   onClose: () => void;
 }) {
-  const message = `Dear Parent, payment of KSh ${paid.toLocaleString('en-KE')} received for ${student.name} (ADM: ${student.admissionNo}). Outstanding balance for ${CURRENT_TERM} is KSh ${balance.toLocaleString('en-KE')}.`;
+  const { currentTerm } = useSchool();
+  const message = `Dear Parent, payment of KSh ${paid.toLocaleString('en-KE')} received for ${student.name} (ADM: ${student.admissionNo}). Outstanding balance for ${currentTerm} is KSh ${balance.toLocaleString('en-KE')}.`;
   const whatsappUrl = `https://wa.me/${student.parentPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
 
   return (

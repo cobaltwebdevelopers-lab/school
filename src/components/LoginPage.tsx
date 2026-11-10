@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '@/lib/auth';
 import { GraduationCap, ArrowLeft, MailCheck } from 'lucide-react';
+import { PRODUCT_NAME } from '@/lib/product';
 
 interface LoginPageProps {
   initialMode?: 'signin' | 'signup';
@@ -79,7 +80,7 @@ export function LoginPage({ initialMode = 'signin', onBack }: LoginPageProps) {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-600 text-white mb-4">
             <GraduationCap className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Fees Reconciliation</h1>
+          <h1 className="text-xl font-bold text-slate-900">{PRODUCT_NAME}</h1>
           <p className="text-sm text-slate-500 mt-1">
             {mode === 'signin' ? 'Sign in to continue' : 'Create your account'}
           </p>
@@ -121,7 +122,7 @@ export function LoginPage({ initialMode = 'signin', onBack }: LoginPageProps) {
           </div>
           {mode === 'signup' && (
             <p className="text-xs text-slate-400">
-              New accounts start with teacher-level access. A bursar can upgrade your role afterward.
+              You'll create your school or join one with an invite code after signing up.
             </p>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}

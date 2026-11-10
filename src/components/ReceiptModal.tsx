@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import type { PaybillPayment, Student, AllocationLine } from '@/types';
-import { formatKSh, SCHOOL, CURRENT_TERM } from '@/mockData';
+import { formatKSh } from '@/lib/format';
+import { useSchool } from '@/lib/auth';
 import { Printer, X, GraduationCap, CheckCircle2 } from 'lucide-react';
 
 interface ReceiptModalProps {
@@ -32,6 +33,10 @@ function printWithThermalPage() {
 }
 
 export function ReceiptModal({ payment, student, allocations, receiptNo, outstandingBalance, onClose }: ReceiptModalProps) {
+  const school = useSchool();
+  // Use the term the payment was applied to, so reprinting an old receipt after the
+  // school moves to a new term still shows the right one.
+  const term = allocations.find((a) => a.term)?.term ?? school.currentTerm;
   const [format, setFormat] = useState<PrintFormat>('standard');
   const qrRef = useRef<HTMLCanvasElement | null>(null);
   const receiptNoFormatted = `ETR-${String(receiptNo).padStart(6, '0')}`;
@@ -40,13 +45,13 @@ export function ReceiptModal({ payment, student, allocations, receiptNo, outstan
     if (!qrRef.current) return;
     const payload = JSON.stringify({
       receiptNo: receiptNoFormatted,
-      pin: SCHOOL.kraPin,
+      pin: school.kraPin,
       amount: payment.amount,
       date: payment.timestamp,
       student: student.admissionNo,
     });
     QRCode.toCanvas(qrRef.current, payload, { width: 96, margin: 0, color: { dark: '#0f172a', light: '#ffffff' } }).catch(() => {});
-  }, [payment, student, receiptNoFormatted]);
+  }, [payment, student, receiptNoFormatted, school.kraPin]);
 
   const handlePrint = (fmt: PrintFormat) => {
     setFormat(fmt);
@@ -76,11 +81,11 @@ export function ReceiptModal({ payment, student, allocations, receiptNo, outstan
                 <div className="w-14 h-14 rounded-xl bg-emerald-500 flex items-center justify-center mx-auto mb-3">
                   <GraduationCap className="w-7 h-7 text-white" />
                 </div>
-                <h2 className="text-lg font-bold text-slate-900">{SCHOOL.name}</h2>
-                <p className="text-xs text-slate-500">{SCHOOL.motto}</p>
-                <p className="text-xs text-slate-400 mt-1">{SCHOOL.address}</p>
-                <p className="text-xs text-slate-400">{SCHOOL.phone}</p>
-                <p className="text-xs text-slate-400 font-mono mt-1">KRA PIN: {SCHOOL.kraPin}</p>
+                <h2 className="text-lg font-bold text-slate-900">{school.name}</h2>
+                <p className="text-xs text-slate-500">{school.motto}</p>
+                <p className="text-xs text-slate-400 mt-1">{school.address}</p>
+                <p className="text-xs text-slate-400">{school.phone}</p>
+                <p className="text-xs text-slate-400 font-mono mt-1">{school.kraPin ? `KRA PIN: ${school.kraPin}` : ''}</p>
               </div>
 
               <div className="flex items-center justify-center gap-2 mb-6 pb-6 border-b border-dashed border-slate-200">
@@ -126,7 +131,7 @@ export function ReceiptModal({ payment, student, allocations, receiptNo, outstan
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Term</span>
-                    <span className="font-medium text-slate-900">{CURRENT_TERM}</span>
+                    <span className="font-medium text-slate-900">{term}</span>
                   </div>
                 </div>
               </div>
@@ -178,10 +183,10 @@ export function ReceiptModal({ payment, student, allocations, receiptNo, outstan
                 className="text-black"
                 style={{ width: '72mm', fontFamily: "'Courier New', Courier, monospace" }}
               >
-                <div className="text-center text-[13px] font-bold leading-tight">{SCHOOL.name.toUpperCase()}</div>
-                <div className="text-center text-[9px] leading-tight">{SCHOOL.address}</div>
-                <div className="text-center text-[9px] leading-tight">Tel: {SCHOOL.phone}</div>
-                <div className="text-center text-[9px] leading-tight">KRA PIN: {SCHOOL.kraPin}</div>
+                <div className="text-center text-[13px] font-bold leading-tight">{school.name.toUpperCase()}</div>
+                <div className="text-center text-[9px] leading-tight">{school.address}</div>
+                <div className="text-center text-[9px] leading-tight">{school.phone ? `Tel: ${school.phone}` : ''}</div>
+                <div className="text-center text-[9px] leading-tight">{school.kraPin ? `KRA PIN: ${school.kraPin}` : ''}</div>
 
                 <div className="my-2 border-t border-dashed border-black" />
                 <div className="text-center text-[11px] font-bold">FEE PAYMENT RECEIPT</div>
@@ -195,7 +200,7 @@ export function ReceiptModal({ payment, student, allocations, receiptNo, outstan
                 <div className="text-[10px] leading-snug">
                   <p>Student: {student.name}</p>
                   <p>Adm No: {student.admissionNo} · {student.grade}</p>
-                  <p>Term: {CURRENT_TERM}</p>
+                  <p>Term: {term}</p>
                 </div>
 
                 <div className="my-2 border-t border-dashed border-black" />

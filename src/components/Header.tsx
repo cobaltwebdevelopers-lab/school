@@ -1,9 +1,8 @@
-import { SCHOOL } from '@/mockData';
 import { useAuth } from '@/lib/auth';
-import { GraduationCap, Wifi, LogOut } from 'lucide-react';
+import { GraduationCap, Wifi, LogOut, Settings } from 'lucide-react';
 
-export function Header() {
-  const { profile, signOut } = useAuth();
+export function Header({ onOpenSettings }: { onOpenSettings?: () => void }) {
+  const { profile, school, signOut } = useAuth();
 
   const roleLabel: Record<string, string> = {
     bursar: 'Bursar',
@@ -19,7 +18,7 @@ export function Header() {
             <GraduationCap className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold leading-tight">{SCHOOL.name}</h1>
+            <h1 className="text-lg font-bold leading-tight">{school?.name ?? ''}</h1>
             <p className="text-xs text-slate-400">Fees Reconciliation Dashboard</p>
           </div>
         </div>
@@ -39,6 +38,15 @@ export function Header() {
             <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold">
               {(profile?.fullName || 'S').charAt(0).toUpperCase()}
             </div>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                title="Settings"
+                className="w-9 h-9 rounded-lg border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => signOut()}
               title="Sign out"

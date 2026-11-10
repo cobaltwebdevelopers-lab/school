@@ -1,4 +1,4 @@
-import { formatKSh } from '@/mockData';
+import { formatKSh } from '@/lib/format';
 import { Wallet, AlertCircle, Clock, TrendingUp } from 'lucide-react';
 
 interface StatsBarProps {

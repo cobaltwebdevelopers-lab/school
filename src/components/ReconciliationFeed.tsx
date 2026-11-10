@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { PaybillPayment, Student, FeeTier, StudentFeeBalance, MatchMethod, AllocationLine } from '@/types';
-import { formatKSh } from '@/mockData';
+import { formatKSh } from '@/lib/format';
 import { matchPayment, type MatchResult } from '@/lib/admissionMatcher';
 import { allocatePayment } from '@/lib/paymentAllocation';
 import { Search, CheckCircle2, AlertTriangle, Clock, X, UserCheck, Sparkles, Smartphone } from 'lucide-react';

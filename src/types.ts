@@ -45,12 +45,51 @@ export interface AllocationLine {
   feeTierId: string;
   tierName: string;
   amount: number;
+  /** The term this allocation was applied to (set when read back from the database). */
+  term?: string;
 }
 
 export interface Profile {
   id: string;
   fullName: string;
+  email: string;
   role: UserRole;
+  /** null until the user creates or joins a school (onboarding). */
+  schoolId: string | null;
+}
+
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled';
+
+/** A tenant. */
+export interface School {
+  id: string;
+  name: string;
+  motto: string;
+  address: string;
+  phone: string;
+  email: string;
+  kraPin: string;
+  paybillNumber: string;
+  paybillVerified: boolean;
+  currentTerm: string;
+  subscriptionStatus: SubscriptionStatus;
+  trialEndsAt: string | null;
+}
+
+export interface SchoolMember {
+  id: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface SchoolInvite {
+  id: string;
+  code: string;
+  role: UserRole;
+  maxUses: number;
+  useCount: number;
+  expiresAt: string;
 }
 
 export interface FeeTier {

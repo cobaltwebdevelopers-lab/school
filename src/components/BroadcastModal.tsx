@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Student, StudentFeeBalance } from '@/types';
-import { formatKSh, CURRENT_TERM } from '@/mockData';
+import { formatKSh } from '@/lib/format';
+import { useSchool } from '@/lib/auth';
 import { Send, X, CheckCircle2, Smartphone } from 'lucide-react';
 
 interface BroadcastModalProps {
@@ -17,6 +18,7 @@ function balanceFor(studentId: string, balances: StudentFeeBalance[]) {
 }
 
 export function BroadcastModal({ students, balances, onClose }: BroadcastModalProps) {
+  const { currentTerm } = useSchool();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -99,7 +101,7 @@ export function BroadcastModal({ students, balances, onClose }: BroadcastModalPr
               <div className="bg-slate-50 rounded-lg p-3 mb-4">
                 <p className="text-xs text-slate-500 mb-1">Sample message:</p>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  "Dear Parent, this is a reminder that the outstanding school fee balance for {CURRENT_TERM} is KSh [amount]. Please pay via M-PESA Paybill {`{school_paybill}`} Account [admission_no]. Thank you."
+                  "Dear Parent, this is a reminder that the outstanding school fee balance for {currentTerm} is KSh [amount]. Please pay via M-PESA Paybill {`{school_paybill}`} Account [admission_no]. Thank you."
                 </p>
               </div>
 

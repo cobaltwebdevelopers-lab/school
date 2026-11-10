@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { PaybillPayment, Student, FeeTier, StudentFeeBalance, MatchMethod, AllocationLine } from '@/types';
-import { CURRENT_TERM } from '@/mockData';
-import { useAuth } from '@/lib/auth';
+import { useAuth, useSchool } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import {
   fetchStudents,
@@ -19,6 +18,8 @@ import {
 } from '@/lib/data';
 import { LoginPage } from '@/components/LoginPage';
 import { LandingPage } from '@/components/LandingPage';
+import { OnboardingPage } from '@/components/OnboardingPage';
+import { SettingsPage } from '@/components/SettingsPage';
 import { TeacherDashboard } from '@/components/TeacherDashboard';
 import { DirectorDashboard } from '@/components/DirectorDashboard';
 import { Header } from '@/components/Header';
@@ -42,6 +43,8 @@ interface ReceiptState {
 
 function BursarDashboard() {
   const { user } = useAuth();
+  const { currentTerm } = useSchool();
+  const [showSettings, setShowSettings] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [feeTiers, setFeeTiers] = useState<FeeTier[]>([]);
   const [balances, setBalances] = useState<StudentFeeBalance[]>([]);
@@ -59,7 +62,7 @@ function BursarDashboard() {
     const [s, t, b, phones, p] = await Promise.all([
       fetchStudents(),
       fetchFeeTiers(),
-      fetchStudentFeeBalances(CURRENT_TERM),
+      fetchStudentFeeBalances(currentTerm),
       fetchParentPhones(),
       fetchPayments(),
     ]);
@@ -69,7 +72,7 @@ function BursarDashboard() {
     setParentPhoneMap(new Map(phones.map((ph) => [ph.phone, ph.studentId])));
     setPayments(p);
     setLoading(false);
-  }, []);
+  }, [currentTerm]);
 
   useEffect(() => {
     loadAll();
@@ -78,7 +81,7 @@ function BursarDashboard() {
   const handleMatch = async (paymentId: string, studentId: string, method: MatchMethod, allocations: AllocationLine[]) => {
     const payment = payments.find((p) => p.id === paymentId);
     if (!payment) return;
-    await confirmMatch(paymentId, studentId, payment.senderPhone, method, CURRENT_TERM, allocations);
+    await confirmMatch(paymentId, studentId, payment.senderPhone, method, currentTerm, allocations);
     await loadAll();
   };
 
@@ -98,7 +101,7 @@ function BursarDashboard() {
     });
     const { allocations } = allocatePayment(amount, tierBalances);
 
-    const paymentId = await recordCashPayment(studentId, amount, allocations, CURRENT_TERM);
+    const paymentId = await recordCashPayment(studentId, amount, allocations, currentTerm);
     await loadAll();
     setShowCashModal(false);
 
@@ -163,15 +166,24 @@ function BursarDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50">
-        <Header />
+        <Header onOpenSettings={() => setShowSettings(true)} />
         <div className="max-w-[1400px] mx-auto px-8 py-16 text-center text-sm text-slate-500">Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  if (showSettings) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header onOpenSettings={() => setShowSettings(false)} />
+        <SettingsPage onBack={() => setShowSettings(false)} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <Header onOpenSettings={() => setShowSettings(true)} />
 
       <main className="max-w-[1400px] mx-auto px-8 py-8 space-y-6">
         <div className="flex items-center justify-between">
@@ -266,7 +278,7 @@ function BursarDashboard() {
 }
 
 function App() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, school, loading, refresh, signOut } = useAuth();
   const [screen, setScreen] = useState<'landing' | 'signin' | 'signup'>('landing');
 
   if (!isSupabaseConfigured) {
@@ -275,8 +287,8 @@ function App() {
         <div className="max-w-md text-center">
           <h1 className="text-lg font-bold text-slate-900">Supabase not configured</h1>
           <p className="text-sm text-slate-500 mt-2">
-            Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file, run the migration
-            in supabase/migrations, then create your first bursar account.
+            Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment, then run the
+            migrations in supabase/migrations (see SETUP.md).
           </p>
         </div>
       </div>
@@ -296,15 +308,32 @@ function App() {
     );
   }
 
-  if (!profile) {
+  // Signed in, but not part of a school yet: create one or join one.
+  if (!profile || !profile.schoolId) {
+    return <OnboardingPage />;
+  }
+
+  // Belongs to a school, but it couldn't be loaded (network error, or removed mid-session).
+  if (!school) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="max-w-md text-center">
-          <h1 className="text-lg font-bold text-slate-900">Account not set up</h1>
-          <p className="text-sm text-slate-500 mt-2">
-            Your login works, but no role has been assigned yet. Ask your administrator to add a
-            row for you in the <code className="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">profiles</code> table.
-          </p>
+          <h1 className="text-lg font-bold text-slate-900">Couldn&apos;t load your school</h1>
+          <p className="text-sm text-slate-500 mt-2">Check your connection and try again.</p>
+          <div className="mt-5 flex items-center justify-center gap-3">
+            <button
+              onClick={() => void refresh()}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => void signOut()}
+              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-white"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     );

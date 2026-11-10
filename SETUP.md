@@ -1,114 +1,126 @@
-# Setup
+# Setup & operations
 
-## 1. Create a Supabase project
+This is a multi-tenant SaaS: one deployment and one Supabase project serve many schools.
+Each school signs up, creates its own workspace, and invites its own staff. A school can
+only ever see its own students, payments and receipts — that isolation is enforced by
+Postgres row-level security, not just the UI.
 
-Create a new project at supabase.com, then grab your **Project URL** and
-**anon/public key** from Project Settings → API.
+You (the platform operator) set this up once. Schools never touch SQL.
 
-## 2. Add environment variables
+## 1. Supabase project and environment
 
-Create a `.env` file in the project root:
+Create a project at supabase.com, then set these in your hosting/Bolt environment:
 
 ```
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-## 3. Run the migrations
+## 2. Run the migrations, in order
 
-In the Supabase dashboard, open **SQL Editor** and run these two files, in order:
+In **SQL Editor**, run each file in `supabase/migrations/` in filename order:
 
-1. `supabase/migrations/20260910000000_school_fees_schema.sql` — creates every
-   table (students, fee tiers, balances, parent phone mappings, payments,
-   payment allocations, receipts) plus row-level security policies for all
-   three roles (bursar, director, teacher).
-2. `supabase/migrations/20260910000001_seed_fee_tiers.sql` — seeds the three
-   default fee categories (Boarding, Tuition, Transport) in payment-priority
-   order. Edit this file first if your school's fee categories differ.
-3. `supabase/migrations/20260910000002_allow_self_signup.sql` — allows
-   visitors to create their own account from the landing page. New accounts
-   always start as `teacher` (least-privileged role) — this is enforced by
-   the database itself, so it can't be bypassed even by calling the API
-   directly. Bursar and director accounts still need to be created the
-   manual way below.
-4. `supabase/migrations/20260910000003_archive_students.sql` — adds support
-   for removing a student from the active roster without destroying their
-   payment history (see step 5 below).
+| File | What it does |
+|---|---|
+| `…0000_school_fees_schema.sql` | Core tables (students, fee tiers, balances, payments, receipts…) |
+| `…0001_seed_fee_tiers.sql` | Superseded — kept for history; `0004` deletes its global seed rows |
+| `…0002_allow_self_signup.sql` | Superseded by `0004` |
+| `…0003_archive_students.sql` | Soft-delete for students |
+| `…0004_multi_tenant.sql` | **Multi-tenancy**: schools, per-school data, new RLS, invites, onboarding functions |
 
-## 4. Create your first bursar account
+**Already ran 0000–0003 on a single-school install?** Just run `0004`. Your existing data is
+carried over into one school called **"My School"** (rename it in Settings), and your existing
+users keep their roles in it. Nothing is lost. Anyone who had signed up but never got a profile
+is moved into the "create or join a school" flow.
 
-Anyone can now sign up from the landing page, but self-signup only ever
-grants the `teacher` role. For your first bursar (or director) login:
+## 3. Your first school
 
-1. In the Supabase dashboard, go to **Authentication → Users → Add user**
-   and create a user with an email and password.
-2. In **SQL Editor**, run (replacing the email):
+Open the app, **Sign Up**, then choose **Create a school**. The creator becomes that school's
+bursar, and the school is seeded with Boarding / Tuition / Transport fee categories (editable in
+Settings → Fee structure). No SQL needed.
 
-   ```sql
-   insert into profiles (id, full_name, role)
-   select id, 'Your Name', 'bursar'
-   from auth.users
-   where email = 'you@example.com';
-   ```
+From **Settings → Team** the bursar creates invite codes for the school's director, teachers, or
+other bursars. A colleague signs up, picks **Join with a code**, and lands in the right school
+with the right role. Codes expire after 14 days and can be limited to a number of uses.
 
-Repeat for any director accounts, or for a teacher account you'd rather
-provision yourself instead of having them sign up. There's currently no
-admin UI for managing staff accounts — this SQL is the way to add or change
-roles for now.
+## 4. Operator tasks (you, in the SQL Editor)
 
-## 5. Add your students
+**Verify a school's paybill.** Schools can *claim* a paybill in Settings, but M-Pesa payments
+only auto-route to it once you've confirmed they own it. (Otherwise anyone could claim another
+school's paybill and receive its payments.) After checking — e.g. against their Daraja/paybill
+documentation:
 
-Once signed in as a bursar, use the **Add Student** button on the dashboard —
-it captures the student's details and their opening fee balances (Boarding,
-Tuition, Transport) for the current term in one step. Removing a student
-from there archives them rather than deleting their record outright, since
-their payment history needs to stay intact for financial record-keeping —
-they'll just drop off the active roster, ledger, and teacher clearance list.
+```sql
+update schools set paybill_verified = true where id = '<school id>';
+```
 
-## 6. Connect real M-Pesa payments (optional but recommended)
+Only one school can hold a given paybill as verified; changing a paybill in Settings clears
+verification until you re-check it.
 
-Without this step, payments only enter the system if a bursar records them
-manually (cash payments) — there's no live connection to Safaricom yet.
+**See your tenants:**
 
-A Supabase Edge Function is included at
-`supabase/functions/mpesa-c2b-confirmation` that receives Safaricom Daraja's
-C2B "Confirmation" callback, records the payment, and immediately
-auto-reconciles it (known phone mapping first, then fuzzy admission-number
-matching) — exactly the same priority order the app uses everywhere else.
-Only genuinely ambiguous or unmatched payments are left for the bursar to
-resolve by hand.
+```sql
+select id, name, paybill_number, paybill_verified, subscription_status, trial_ends_at, created_at
+from schools order by created_at desc;
+```
 
-1. Install the Supabase CLI and log in, then from the project root:
+**Change a subscription state** (billing isn't automated yet — see below):
 
-   ```bash
-   supabase functions deploy mpesa-c2b-confirmation --no-verify-jwt
-   ```
+```sql
+update schools set subscription_status = 'active' where id = '<school id>';
+-- 'trialing' | 'active' | 'past_due' | 'cancelled'
+```
 
-   `--no-verify-jwt` is required — Safaricom's callback can't send a Supabase
-   auth token, so this one function has to accept unauthenticated requests.
-   (This is safe: it only accepts Daraja's specific payload shape and can't
-   be used to read or modify anything else.)
+**Delete a school and all its data** (irreversible; its members return to the onboarding screen):
 
-2. Register the deployed function's URL with Safaricom as your C2B
-   **Confirmation URL** (via the Daraja portal, or your own
-   `RegisterURL` API call) — you'll need a Safaricom Daraja developer account
-   and your school's paybill number for this part, which only the school can
-   set up.
+```sql
+delete from schools where id = '<school id>';
+```
 
-3. If your fee terms don't match the default `'Term 2 2026'` used elsewhere
-   in the app, set a `CURRENT_TERM` secret on the function so it allocates
-   against the right term:
+## 5. Live M-Pesa payments
 
-   ```bash
-   supabase secrets set CURRENT_TERM="Term 1 2027"
-   ```
+One Edge Function serves every school. It reads the paybill Safaricom reports, finds the
+**verified** school that owns it, and reconciles the payment inside that school only.
 
-## On eTIMS
+```bash
+supabase functions deploy mpesa-c2b-confirmation --no-verify-jwt
+supabase secrets set WEBHOOK_SECRET="<a long random string>"
+```
 
-Receipts are laid out to match KRA eTIMS conventions (KRA PIN, sequential
-receipt number, QR code, tax-treatment line), but nothing here actually
-submits to KRA's systems — that requires the school's own OSCU/VSCU
-registration and API credentials from KRA, which only the school itself
-can obtain. Once you have those credentials, the receipt's data model
-(SCHOOL.kraPin in `src/mockData.ts`, plus the receipt/QR payload in
-`src/components/ReceiptModal.tsx`) is where that integration would plug in.
+`--no-verify-jwt` is needed because Safaricom can't send a Supabase token; the shared
+`WEBHOOK_SECRET` in the callback URL is what stops anyone else posting fake payments.
+Register this as the C2B **Confirmation URL**:
+
+```
+https://<project-ref>.supabase.co/functions/v1/mpesa-c2b-confirmation?secret=<WEBHOOK_SECRET>
+```
+
+Two things to plan for:
+
+- **Who registers the URL with Safaricom?** Registering a C2B URL for a paybill needs access to
+  that paybill's Daraja setup, which belongs to the school (or its bank/PSP). Each school has to
+  point its own paybill at your URL (or you work through an aggregator). Verifying the paybill in
+  step 4 is your check that they really own it.
+- **Payments for an unverified paybill are not stored** — there's no school to file them under.
+  They're acknowledged to Safaricom and written to the function's logs (Supabase → Edge
+  Functions → Logs) so you can see them. Verify the school's paybill *before* they go live.
+
+Until a school's paybill is verified and registered, it can still record cash payments and
+manually match payments in the app.
+
+## 6. Not built yet
+
+- **Billing.** The data model has subscription status and a 30-day trial date, and Settings
+  shows them, but nothing charges anyone or locks an expired trial.
+- **New-term rollover.** Changing a school's current term doesn't copy fees forward. The bursar
+  adds the new term's balances per student; a "start new term" action would be a natural next step.
+- **Platform admin UI.** Operator tasks above are SQL for now.
+- **Email invites.** Invites are codes the bursar shares by hand.
+- **eTIMS submission.** Receipts are laid out for eTIMS (KRA PIN, sequential per-school numbers,
+  QR code, tax line), but nothing is submitted to KRA. That needs each school's own OSCU/VSCU
+  registration and API credentials from KRA.
+
+## Product name
+
+The product is called **FeeDesk** as a placeholder. Change `PRODUCT_NAME` in
+`src/lib/product.ts` and it updates everywhere.

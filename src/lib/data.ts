@@ -8,6 +8,9 @@ import type {
   StudentClearance,
   AllocationLine,
   MatchMethod,
+  SchoolMember,
+  SchoolInvite,
+  UserRole,
 } from '@/types';
 
 export async function fetchStudents(): Promise<Student[]> {
@@ -254,13 +257,14 @@ export async function nextReceiptNo(paymentId: string, studentId: string, totalA
 export async function fetchAllocationsForPayment(paymentId: string): Promise<AllocationLine[]> {
   const { data, error } = await supabase
     .from('payment_allocations')
-    .select('fee_tier_id, amount, fee_tiers(name)')
+    .select('fee_tier_id, amount, term, fee_tiers(name)')
     .eq('payment_id', paymentId);
   if (error) throw error;
   return (data ?? []).map((a) => ({
     feeTierId: a.fee_tier_id,
     tierName: (a as unknown as { fee_tiers: { name: string } | null }).fee_tiers?.name ?? 'Fee',
     amount: Number(a.amount),
+    term: (a as unknown as { term: string | null }).term ?? undefined,
   }));
 }
 
@@ -278,4 +282,123 @@ export async function fetchOrCreateReceiptNo(
     .maybeSingle();
   if (existing) return existing.receipt_no as number;
   return nextReceiptNo(paymentId, studentId, totalAmount, issuedBy);
+}
+
+// ===================== Tenancy: schools, team, invites =====================
+
+function fail(error: { message: string } | null): never | void {
+  if (error) throw new Error(error.message);
+}
+
+export interface SchoolDetailsInput {
+  name: string;
+  motto?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  kraPin?: string;
+  paybill?: string;
+  currentTerm?: string;
+}
+
+export async function createSchool(input: SchoolDetailsInput): Promise<void> {
+  const { error } = await supabase.rpc('create_school', {
+    p_name: input.name,
+    p_address: input.address ?? null,
+    p_phone: input.phone ?? null,
+    p_email: input.email ?? null,
+    p_kra_pin: input.kraPin ?? null,
+    p_paybill: input.paybill ?? null,
+    p_current_term: input.currentTerm ?? null,
+  });
+  fail(error);
+}
+
+export async function acceptInvite(code: string): Promise<void> {
+  const { error } = await supabase.rpc('accept_invite', { p_code: code });
+  fail(error);
+}
+
+export async function updateSchoolSettings(input: Required<SchoolDetailsInput>): Promise<void> {
+  const { error } = await supabase.rpc('update_school_settings', {
+    p_name: input.name,
+    p_motto: input.motto,
+    p_address: input.address,
+    p_phone: input.phone,
+    p_email: input.email,
+    p_kra_pin: input.kraPin,
+    p_paybill: input.paybill,
+    p_current_term: input.currentTerm,
+  });
+  fail(error);
+}
+
+export async function fetchMembers(): Promise<SchoolMember[]> {
+  const { data, error } = await supabase.from('profiles').select('id, full_name, email, role').order('full_name');
+  fail(error);
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    fullName: m.full_name ?? '',
+    email: m.email ?? '',
+    role: m.role as UserRole,
+  }));
+}
+
+export async function setMemberRole(userId: string, role: UserRole): Promise<void> {
+  const { error } = await supabase.rpc('set_member_role', { p_user: userId, p_role: role });
+  fail(error);
+}
+
+export async function removeMember(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('remove_member', { p_user: userId });
+  fail(error);
+}
+
+export async function createInvite(role: UserRole, maxUses = 1, days = 14): Promise<string> {
+  const { data, error } = await supabase.rpc('create_invite', { p_role: role, p_max_uses: maxUses, p_days: days });
+  fail(error);
+  return data as string;
+}
+
+export async function fetchInvites(): Promise<SchoolInvite[]> {
+  const { data, error } = await supabase
+    .from('school_invites')
+    .select('id, code, role, max_uses, use_count, expires_at')
+    .order('created_at', { ascending: false });
+  fail(error);
+  return (data ?? []).map((i) => ({
+    id: i.id,
+    code: i.code,
+    role: i.role as UserRole,
+    maxUses: i.max_uses,
+    useCount: i.use_count,
+    expiresAt: i.expires_at,
+  }));
+}
+
+export async function revokeInvite(inviteId: string): Promise<void> {
+  const { error } = await supabase.from('school_invites').delete().eq('id', inviteId);
+  fail(error);
+}
+
+// ===================== Fee structure (per school) =====================
+
+export async function addFeeTier(name: string, priority: number): Promise<void> {
+  const { error } = await supabase.from('fee_tiers').insert({ name: name.trim(), priority });
+  if (error?.message.includes('duplicate key')) throw new Error(`A fee category named "${name.trim()}" already exists.`);
+  fail(error);
+}
+
+export async function updateFeeTier(id: string, name: string, priority: number): Promise<void> {
+  const { error } = await supabase.from('fee_tiers').update({ name: name.trim(), priority }).eq('id', id);
+  if (error?.message.includes('duplicate key')) throw new Error(`A fee category named "${name.trim()}" already exists.`);
+  fail(error);
+}
+
+export async function deleteFeeTier(id: string): Promise<void> {
+  const { error } = await supabase.from('fee_tiers').delete().eq('id', id);
+  if (error?.message.includes('foreign key')) {
+    throw new Error('This category has fees recorded against students or payments, so it can\u2019t be deleted.');
+  }
+  fail(error);
 }

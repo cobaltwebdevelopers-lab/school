@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Student, StudentFeeBalance, FeeTier } from '@/types';
-import { formatKSh, CURRENT_TERM } from '@/mockData';
+import { formatKSh } from '@/lib/format';
+import { useSchool } from '@/lib/auth';
 import { allocatePayment } from '@/lib/paymentAllocation';
 import { X, Banknote, Search } from 'lucide-react';
 
@@ -13,6 +14,7 @@ interface CashPaymentModalProps {
 }
 
 export function CashPaymentModal({ students, feeTiers, balances, onClose, onSubmit }: CashPaymentModalProps) {
+  const { currentTerm } = useSchool();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Student | null>(null);
   const [amount, setAmount] = useState('');
@@ -63,7 +65,7 @@ export function CashPaymentModal({ students, feeTiers, balances, onClose, onSubm
             </div>
             <div>
               <h3 className="font-bold text-slate-900">Record Cash Payment</h3>
-              <p className="text-xs text-slate-500">{CURRENT_TERM}</p>
+              <p className="text-xs text-slate-500">{currentTerm}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">

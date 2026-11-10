@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FeeTier, StudentFeeBalance, PaybillPayment } from '@/types';
 import { fetchFeeTiers, fetchStudentFeeBalances, fetchPayments } from '@/lib/data';
-import { formatKSh } from '@/mockData';
+import { formatKSh } from '@/lib/format';
+import { useSchool } from '@/lib/auth';
 import { TrendingUp, TrendingDown, Wallet, BarChart3 } from 'lucide-react';
 
-const CURRENT_TERM = 'Term 2 2026';
-
 export function DirectorDashboard() {
+  const { currentTerm } = useSchool();
   const [tiers, setTiers] = useState<FeeTier[]>([]);
   const [balances, setBalances] = useState<StudentFeeBalance[]>([]);
   const [payments, setPayments] = useState<PaybillPayment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchFeeTiers(), fetchStudentFeeBalances(CURRENT_TERM), fetchPayments()])
+    Promise.all([fetchFeeTiers(), fetchStudentFeeBalances(currentTerm), fetchPayments()])
       .then(([t, b, p]) => {
         setTiers(t);
         setBalances(b);
         setPayments(p);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [currentTerm]);
 
   const stats = useMemo(() => {
     const projected = balances.reduce((sum, b) => sum + b.amountDue, 0);
@@ -50,7 +50,7 @@ export function DirectorDashboard() {
     <main className="max-w-6xl mx-auto px-8 py-8 space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Financial Reporting</h2>
-        <p className="text-sm text-slate-500 mt-1">{CURRENT_TERM} · Director view (read-only)</p>
+        <p className="text-sm text-slate-500 mt-1">{currentTerm} · Director view (read-only)</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

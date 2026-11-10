@@ -1,5 +1,16 @@
-import { SCHOOL } from '@/mockData';
-import { GraduationCap, Wand2, Phone, Layers, Receipt, ShieldCheck, ArrowRight } from 'lucide-react';
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/product';
+import {
+  GraduationCap,
+  Wand2,
+  Phone,
+  Layers,
+  Receipt,
+  ShieldCheck,
+  ArrowRight,
+  Building2,
+  UserPlus,
+  Zap,
+} from 'lucide-react';
 
 interface LandingPageProps {
   onSignIn: () => void;
@@ -10,29 +21,40 @@ export function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
   const features = [
     {
       icon: Wand2,
-      title: 'Fuzzy Matching',
+      title: 'Fuzzy matching',
       text: 'Reconciles messy M-Pesa references like "ADM1024" or "adm-1024" to the right student automatically.',
     },
     {
       icon: Phone,
-      title: 'Instant Recognition',
+      title: 'Instant recognition',
       text: 'Once a parent\u2019s phone is linked to their child, every future payment reconciles instantly.',
     },
     {
       icon: Layers,
-      title: 'Tiered Allocation',
-      text: 'Partial payments are split across Boarding, Tuition, and Transport in the right priority order.',
+      title: 'Your fee structure',
+      text: 'Define your own fee categories and the order payments are applied \u2014 Boarding first, then Tuition, or however your school works.',
     },
     {
       icon: Receipt,
-      title: 'eTIMS-Ready Receipts',
-      text: 'Sequential, QR-coded receipts in both standard and 80mm thermal-printer formats.',
+      title: 'eTIMS-ready receipts',
+      text: 'Sequential, QR-coded receipts for each school, in standard and 80mm thermal-printer formats.',
     },
     {
       icon: ShieldCheck,
-      title: 'Role-Based Access',
+      title: 'Roles for your whole office',
       text: 'Bursars reconcile, directors see the numbers, teachers just see who\u2019s cleared \u2014 nothing more.',
     },
+    {
+      icon: Building2,
+      title: 'Private to your school',
+      text: 'Every school\u2019s students, payments and receipts are kept completely separate from every other school\u2019s.',
+    },
+  ];
+
+  const steps = [
+    { icon: Building2, title: 'Create your school', text: 'Add your school\u2019s details, KRA PIN and M-Pesa paybill.' },
+    { icon: UserPlus, title: 'Add students and your team', text: 'Enter students with their term fees, and invite your director and teachers with a code.' },
+    { icon: Zap, title: 'Let payments reconcile themselves', text: 'Payments are matched, split across your fee categories, and receipted \u2014 you only handle the exceptions.' },
   ];
 
   return (
@@ -43,7 +65,7 @@ export function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
             <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-slate-900">{SCHOOL.name}</span>
+            <span className="font-bold text-slate-900">{PRODUCT_NAME}</span>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={onSignIn} className="text-sm font-semibold text-slate-600 hover:text-slate-900">
@@ -53,26 +75,27 @@ export function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
               onClick={onSignUp}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
             >
-              Sign Up
+              Get Started
             </button>
           </div>
         </div>
       </header>
 
       <section className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
+        <p className="text-sm font-semibold text-emerald-600 mb-3">{PRODUCT_TAGLINE}</p>
         <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
           Fee reconciliation that <span className="text-emerald-600">matches itself</span>
         </h1>
         <p className="mt-5 text-lg text-slate-500 max-w-2xl mx-auto">
-          Messy M-Pesa references, split fee structures, and manual receipt-writing — handled
-          automatically, with eTIMS-ready paperwork and role-based access for your whole office.
+          Messy M-Pesa references, split fee structures, and hand-written receipts — handled
+          automatically, with eTIMS-ready paperwork and the right access for everyone in your office.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <button
             onClick={onSignUp}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
           >
-            Create an Account
+            Create your school
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
@@ -81,6 +104,22 @@ export function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
           >
             Sign In
           </button>
+        </div>
+      </section>
+
+      <section className="max-w-5xl mx-auto px-6 pb-16">
+        <h2 className="text-center text-xl font-bold text-slate-900 mb-8">How it works</h2>
+        <div className="grid sm:grid-cols-3 gap-5">
+          {steps.map(({ icon: Icon, title, text }, i) => (
+            <div key={title} className="text-center px-2">
+              <div className="mx-auto w-11 h-11 rounded-full bg-emerald-600 text-white flex items-center justify-center mb-3">
+                <Icon className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Step {i + 1}</p>
+              <h3 className="font-semibold text-slate-900 mt-1">{title}</h3>
+              <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">{text}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -99,8 +138,7 @@ export function LandingPage({ onSignIn, onSignUp }: LandingPageProps) {
       </section>
 
       <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400">
-        {SCHOOL.name} · New accounts start with teacher-level access; ask your bursar to
-        upgrade your role if needed.
+        {PRODUCT_NAME} · {PRODUCT_TAGLINE}
       </footer>
     </div>
   );
