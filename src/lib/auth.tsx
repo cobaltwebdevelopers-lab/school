@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { Profile, School, UserRole } from '@/types';
 
 interface AuthContextValue {
@@ -69,6 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Without Supabase settings there's nothing to sign in to. Don't touch the (null) client —
+    // App shows a "not configured" message instead of crashing to a blank page.
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(async ({ data }) => {
       const u = data.session?.user ?? null;
       setUser(u);
